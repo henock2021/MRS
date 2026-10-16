@@ -1,0 +1,51 @@
+{
+  "name": "nature-club-mrs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && prisma db push && prisma db seed && next build",
+    "start": "next start -H 0.0.0.0",
+    "lint": "eslint",
+    "test": "tsx scripts/test-stage2.ts && tsx scripts/test-stage3.ts && tsx scripts/test-stage4.ts && tsx scripts/test-stage5.ts && tsx scripts/test-stage6.ts && tsx scripts/test-stage7.ts && tsx scripts/test-stage8.ts && tsx scripts/test-stage9.ts",
+    "test:stage2": "tsx scripts/test-stage2.ts",
+    "test:stage3": "tsx scripts/test-stage3.ts",
+    "test:stage4": "tsx scripts/test-stage4.ts",
+    "test:stage5": "tsx scripts/test-stage5.ts",
+    "test:stage6": "tsx scripts/test-stage6.ts",
+    "test:stage7": "tsx scripts/test-stage7.ts",
+    "test:stage8": "tsx scripts/test-stage8.ts",
+    "test:stage9": "tsx scripts/test-stage9.ts",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:backup": "tsx scripts/backup-db.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "lucide-react": "^1.58.0",
+    "next": "16.4.2",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.2",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,175 @@
+// ===================================================
+// Prisma Schema for Nature Club Management System
+// Database: SQLite (local file: dev.db)
+// ===================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User access roles for system authentication
+enum Role {
+  ADMIN
+  STAFF
+  MEMBER
+}
+
+// Member lifecycle status
+enum MemberStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DEACTIVATED
+}
+
+// Accepted payment methods
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  OTHER
+}
+
+// User accounts for logging into admin, staff, or member portal
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  role         Role      @default(MEMBER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // 1-to-1 optional relationship to Member profile
+  member       Member?
+
+  // Reset tokens for forgot password flow
+  resetTokens  PasswordResetToken[]
+}
+
+// Password reset tokens with automatic expiry
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// Membership tier definitions (e.g. Student, Adult, Family, Supporter)
+model MembershipType {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  fee          Float
+  durationDays Int      @default(365)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  members      Member[]
+}
+
+// Club member records
+model Member {
+  id                    String        @id @default(cuid())
+  memberCode            String        @unique // e.g. "NC-000101"
+  fullName              String
+  phone                 String        @unique
+  email                 String        @unique
+  address               String
+  dateOfBirth           DateTime
+  gender                String?       // Optional: "male", "female", "other", "prefer_not_to_say"
+  occupation            String?       // Occupation or school
+  photoUrl              String?
+
+  // Under-18 guardian consent details
+  isMinor               Boolean       @default(false)
+  guardianName          String?
+  guardianPhone         String?
+  guardianConsent       Boolean       @default(false)
+
+  // Club rules & safety agreements
+  agreedToRules         Boolean       @default(true)
+  liabilityWaiver       Boolean       @default(true)
+
+  // Membership status & internal notes
+  status                MemberStatus  @default(PENDING)
+  adminNotes            String?
+
+  // Interest areas (stored as comma-separated values, e.g. "hiking,bird watching,camping")
+  interestAreas         String
+
+  // Sensitive emergency contact & health notes
+  // (Access restricted to authenticated Admins & Staff; not exposed publicly)
+  emergencyContactName  String
+  emergencyContactPhone String
+  healthNotes           String?       // Allergies, medical conditions, special care notes
+
+  // Membership Tier relation
+  membershipTypeId      String?
+  membershipType        MembershipType? @relation(fields: [membershipTypeId], references: [id], onDelete: SetNull)
+
+  // Authentication link (populated once approved member sets a password)
+  userId                String?       @unique
+  user                  User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Activity & financial history
+  payments              Payment[]
+  registrations         EventRegistration[]
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+}
+
+// Recorded membership payments & fee renewals
+model Payment {
+  id            String        @id @default(cuid())
+  memberId      String
+  member        Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentDate   DateTime      @default(now())
+  paymentMethod PaymentMethod
+  startDate     DateTime
+  expiryDate    DateTime
+  note          String?
+  recordedBy    String?       // Name or email of Admin/Staff who logged payment
+  createdAt     DateTime      @default(now())
+}
+
+// Club events and outdoor activities
+model Event {
+  id           String              @id @default(cuid())
+  title        String
+  eventType    String              // hike, tree planting, clean-up, bird watching, camping, workshop
+  description  String
+  meetingPoint String
+  dateTime     DateTime
+  capacity     Int
+  fee          Float               @default(0.0)
+  isPublished  Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  registrations EventRegistration[]
+}
+
+// Event attendance and member registrations
+model EventRegistration {
+  id           String    @id @default(cuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  memberId     String
+  member       Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  registeredAt DateTime  @default(now())
+  attended     Boolean   @default(false)
+  notes        String?
+
+  @@unique([eventId, memberId]) // Prevent duplicate registration for the same event
+}

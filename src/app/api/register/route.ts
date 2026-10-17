@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { registrationSchema, calculateAge } from "@/lib/validations";
 import { generateMemberCode } from "@/lib/id-generator";
 import { MemberStatus } from "@prisma/client";
+import { sendRegistrationConfirmationEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -178,6 +179,19 @@ export async function POST(req: NextRequest) {
         membershipType: true,
       },
     });
+
+    // 8. Send confirmation email to applicant (non-blocking)
+    try {
+      await sendRegistrationConfirmationEmail({
+        to: newMember.email,
+        fullName: newMember.fullName,
+        memberCode: newMember.memberCode,
+        membershipTypeName: newMember.membershipType?.name || "Standard",
+        membershipFee: newMember.membershipType?.fee || 0,
+      });
+    } catch (emailErr) {
+      console.warn("Non-fatal: Failed to send registration confirmation email:", emailErr);
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireStaffOrAdmin } from "@/lib/auth-utils";
 import { MemberStatus } from "@prisma/client";
+import { sendApplicationApprovedEmail } from "@/lib/email";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -52,6 +53,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       where: { id },
       data: updateData,
     });
+
+    // Send approval email notification if status just transitioned to APPROVED
+    if (body.status === MemberStatus.APPROVED && existing.status !== MemberStatus.APPROVED) {
+      try {
+        await sendApplicationApprovedEmail({
+          to: updated.email,
+          fullName: updated.fullName,
+          memberCode: updated.memberCode,
+        });
+      } catch (err) {
+        console.warn("Non-fatal: Failed to send approval email:", err);
+      }
+    }
 
     return NextResponse.json({ success: true, member: updated });
   } catch (error: any) {

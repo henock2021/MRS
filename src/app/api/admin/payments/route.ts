@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireStaffOrAdmin } from "@/lib/auth-utils";
 import { PaymentMethod, MemberStatus } from "@prisma/client";
 import { z } from "zod";
+import { sendPaymentReceiptEmail } from "@/lib/email";
 
 const paymentSchema = z.object({
   memberId: z.string().min(1, "Member ID is required"),
@@ -112,6 +113,25 @@ export async function POST(req: NextRequest) {
         where: { id: member.id },
         data: { status: MemberStatus.APPROVED },
       });
+    }
+
+    // Send electronic payment receipt email (non-blocking)
+    try {
+      await sendPaymentReceiptEmail({
+        to: member.email,
+        fullName: member.fullName,
+        memberCode: member.memberCode,
+        receiptNumber: payment.receiptNumber,
+        amount: payment.amount,
+        paymentMethod: payment.paymentMethod.replace(/_/g, " "),
+        validUntil: payment.expiryDate.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+      });
+    } catch (emailErr) {
+      console.warn("Non-fatal: Failed to send payment receipt email:", emailErr);
     }
 
     return NextResponse.json({ success: true, payment }, { status: 201 });

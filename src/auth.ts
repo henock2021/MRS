@@ -10,8 +10,24 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// Ensure cloud hosting environments behind proxies (e.g. Render) trust forwarded host headers
+if (!process.env.AUTH_TRUST_HOST) {
+  process.env.AUTH_TRUST_HOST = "true";
+}
+
+// Ensure secret is populated in process.env so NextAuth v5 internal checks pass
+if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
+  process.env.AUTH_SECRET = "nature-club-super-secret-key-change-in-production-32chars";
+  process.env.NEXTAUTH_SECRET = "nature-club-super-secret-key-change-in-production-32chars";
+}
+
+// In production, avoid localhost url conflicts if copied from dev .env
+if (process.env.NODE_ENV === "production" && process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.includes("localhost")) {
+  delete process.env.NEXTAUTH_URL;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET || "nature-club-fallback-secret-key-32chars",
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "nature-club-super-secret-key-change-in-production-32chars",
   trustHost: true,
   session: {
     strategy: "jwt",

@@ -45,18 +45,26 @@ function LoginForm() {
         }
 
         // Successfully logged in: inspect user session to route to appropriate area
-        const sessionRes = await fetch("/api/auth/session");
-        const sessionData = await sessionRes.json();
-        const role = sessionData?.user?.role;
+        let destination = "/admin/dashboard";
+        try {
+          const sessionRes = await fetch("/api/auth/session");
+          const sessionData = await sessionRes.json();
+          const role = sessionData?.user?.role;
 
-        if (role === "MEMBER") {
-          router.push("/portal/dashboard");
-        } else if (searchParams.get("callbackUrl")) {
-          router.push(searchParams.get("callbackUrl")!);
-        } else {
-          router.push("/admin/dashboard");
+          if (role === "MEMBER") {
+            destination = "/portal/dashboard";
+          } else if (searchParams.get("callbackUrl")) {
+            destination = searchParams.get("callbackUrl")!;
+          }
+        } catch (_) {
+          // If session inspection fails, fallback to callbackUrl or admin
+          if (searchParams.get("callbackUrl")) {
+            destination = searchParams.get("callbackUrl")!;
+          }
         }
-        router.refresh();
+
+        // Full browser navigation to guarantee session cookie transmission to server components
+        window.location.href = destination;
       } catch (err) {
         setErrorMessage("An unexpected network error occurred. Please try again.");
       }

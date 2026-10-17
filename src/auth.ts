@@ -81,6 +81,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!user) {
+          // Check if this email belongs to a registered member who hasn't activated their login yet
+          const unactivatedMember = await prisma.member.findUnique({
+            where: { email },
+            select: { status: true, memberCode: true },
+          });
+
+          if (unactivatedMember) {
+            if (unactivatedMember.status === "PENDING") {
+              throw new Error("MEMBER_PENDING_APPROVAL");
+            } else if (unactivatedMember.status === "APPROVED") {
+              throw new Error("MEMBER_NEEDS_ACTIVATION");
+            } else if (unactivatedMember.status === "REJECTED") {
+              throw new Error("MEMBER_REJECTED");
+            } else if (unactivatedMember.status === "DEACTIVATED") {
+              throw new Error("MEMBER_DEACTIVATED");
+            }
+          }
+
           recordFailedAttempt(email);
           return null; // Generic error in NextAuth
         }

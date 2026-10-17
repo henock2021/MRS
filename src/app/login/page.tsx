@@ -14,11 +14,13 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [needsActivation, setNeedsActivation] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setNeedsActivation(false);
 
     startTransition(async () => {
       try {
@@ -33,12 +35,28 @@ function LoginForm() {
             setErrorMessage(
               "Too many failed login attempts. For security, please wait 15 minutes before trying again."
             );
-          } else if (result.error.includes("MEMBER_NOT_APPROVED")) {
+          } else if (
+            result.error.includes("MEMBER_NOT_APPROVED") ||
+            result.error.includes("MEMBER_PENDING_APPROVAL")
+          ) {
             setErrorMessage(
-              "Your membership registration is currently pending review or is inactive. You can log in once approved by club coordinators."
+              "Your membership registration is currently PENDING review by club coordinators. You can create your password and log in once an admin approves your application."
+            );
+          } else if (result.error.includes("MEMBER_NEEDS_ACTIVATION")) {
+            setErrorMessage(
+              "Your application is APPROVED! Before logging in, please activate your account to create your password."
+            );
+            setNeedsActivation(true);
+          } else if (result.error.includes("MEMBER_REJECTED")) {
+            setErrorMessage(
+              "This membership application was not approved. Please reach out to club coordinators for guidance."
+            );
+          } else if (result.error.includes("MEMBER_DEACTIVATED")) {
+            setErrorMessage(
+              "This membership account is currently deactivated. Please contact club administration."
             );
           } else {
-            // Generic security error message to prevent account enumeration
+            // Generic security error message
             setErrorMessage("Invalid email or password. Please verify your credentials and try again.");
           }
           return;
@@ -99,9 +117,31 @@ function LoginForm() {
 
         {/* Error Alert */}
         {errorMessage && (
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <p className="leading-relaxed">{errorMessage}</p>
+          <div
+            className={`p-3.5 rounded-xl border text-xs flex flex-col gap-2 ${
+              needsActivation
+                ? "bg-amber-50 border-amber-300 text-amber-950"
+                : "bg-rose-50 border-rose-200 text-rose-900"
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertCircle
+                className={`w-4 h-4 shrink-0 mt-0.5 ${
+                  needsActivation ? "text-amber-600" : "text-rose-600"
+                }`}
+              />
+              <p className="leading-relaxed">{errorMessage}</p>
+            </div>
+            {needsActivation && (
+              <div className="pt-1 border-t border-amber-200/80">
+                <Link
+                  href="/activate"
+                  className="inline-flex items-center gap-1.5 font-bold text-xs text-emerald-800 hover:text-emerald-900 underline"
+                >
+                  <span>Click here to set your password &rarr;</span>
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

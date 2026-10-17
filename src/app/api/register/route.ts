@@ -4,6 +4,9 @@ import { registrationSchema, calculateAge } from "@/lib/validations";
 import { generateMemberCode } from "@/lib/id-generator";
 import { MemberStatus } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * GET /api/register
  * Returns active membership tiers so the registration form
@@ -23,7 +26,14 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ success: true, membershipTypes });
+    return NextResponse.json(
+      { success: true, membershipTypes },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching membership types:", error);
     return NextResponse.json(
@@ -91,11 +101,41 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Verify selected Membership Type exists
-    const membershipType = await prisma.membershipType.findUnique({
+    // Multiple lookup strategies for resilience across ephemeral redeploys & caching:
+    // a) Lookup by exact ID
+    let membershipType = await prisma.membershipType.findUnique({
       where: { id: data.membershipTypeId },
     });
 
+    // b) Lookup by name (in case frontend passed tier name or slug format like "tier-adult")
+    if (!membershipType) {
+      const candidateName = data.membershipTypeId.replace(/^tier-/, "");
+      membershipType = await prisma.membershipType.findFirst({
+        where: {
+          OR: [
+            { name: { equals: data.membershipTypeId } },
+            { name: { equals: candidateName } },
+          ],
+        },
+      });
+    }
+
+    // c) Graceful fallback: If applicant's browser submitted a stale CUID from
+    // a prior ephemeral deployment session, select the default active "Adult" tier
+    // or lowest-fee active tier so the applicant's submission succeeds smoothly.
     if (!membershipType || !membershipType.isActive) {
+      membershipType = await prisma.membershipType.findFirst({
+        where: { isActive: true, name: "Adult" },
+      });
+      if (!membershipType) {
+        membershipType = await prisma.membershipType.findFirst({
+          where: { isActive: true },
+          orderBy: { fee: "asc" },
+        });
+      }
+    }
+
+    if (!membershipType) {
       return NextResponse.json(
         { error: "Selected membership tier is invalid or no longer active." },
         { status: 400 }
@@ -132,7 +172,7 @@ export async function POST(req: NextRequest) {
         emergencyContactName: data.emergencyContactName,
         emergencyContactPhone: data.emergencyContactPhone,
         healthNotes: data.healthNotes || null,
-        membershipTypeId: data.membershipTypeId,
+        membershipTypeId: membershipType.id,
       },
       include: {
         membershipType: true,

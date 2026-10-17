@@ -91,15 +91,21 @@ export default function RegisterPage() {
   useEffect(() => {
     async function loadTiers() {
       try {
-        const res = await fetch("/api/register");
+        const res = await fetch("/api/register", { cache: "no-store" });
         const json = await res.json();
         if (json.membershipTypes && json.membershipTypes.length > 0) {
           setMembershipTypes(json.membershipTypes);
-          // Default to Adult or first tier
-          const defaultTier =
-            json.membershipTypes.find((t: MembershipTypeOption) => t.name === "Adult") ||
-            json.membershipTypes[0];
-          setMembershipTypeId(defaultTier.id);
+          // Keep current selection if it exists in the active tiers, otherwise select Adult or first tier
+          setMembershipTypeId((currentId) => {
+            const exists = json.membershipTypes.some(
+              (t: MembershipTypeOption) => t.id === currentId
+            );
+            if (exists && currentId) return currentId;
+            const defaultTier =
+              json.membershipTypes.find((t: MembershipTypeOption) => t.name === "Adult") ||
+              json.membershipTypes[0];
+            return defaultTier.id;
+          });
         }
       } catch (err) {
         console.error("Failed to load membership types:", err);
@@ -197,6 +203,14 @@ export default function RegisterPage() {
       return;
     }
 
+    // Ensure membership tier is populated
+    let selectedTier = membershipTypeId;
+    if (!selectedTier && membershipTypes.length > 0) {
+      const defaultTier =
+        membershipTypes.find((t) => t.name === "Adult") || membershipTypes[0];
+      selectedTier = defaultTier.id;
+    }
+
     const payload = {
       fullName,
       email,
@@ -205,7 +219,7 @@ export default function RegisterPage() {
       dateOfBirth,
       gender: gender || null,
       occupation,
-      membershipTypeId,
+      membershipTypeId: selectedTier,
       interestAreas: selectedInterests,
       emergencyContactName: emergencyName,
       emergencyContactPhone: emergencyPhone,

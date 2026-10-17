@@ -65,24 +65,28 @@ async function main() {
   // 2. Create standard Membership Types
   const membershipTypesData = [
     {
+      id: "tier-student",
       name: "Student",
       fee: 15.0,
       durationDays: 365,
       description: "Discounted access for students and youth with valid school identification.",
     },
     {
+      id: "tier-adult",
       name: "Adult",
       fee: 35.0,
       durationDays: 365,
       description: "Standard individual membership for adult nature lovers (18+).",
     },
     {
+      id: "tier-family",
       name: "Family",
       fee: 60.0,
       durationDays: 365,
       description: "Covers up to two adults and dependent children living in the same household.",
     },
     {
+      id: "tier-supporter",
       name: "Supporter",
       fee: 100.0,
       durationDays: 365,

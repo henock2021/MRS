@@ -11,19 +11,36 @@ const loginSchema = z.object({
 });
 
 // Ensure cloud hosting environments behind proxies (e.g. Render) trust forwarded host headers
-if (!process.env.AUTH_TRUST_HOST) {
-  process.env.AUTH_TRUST_HOST = "true";
+process.env.AUTH_TRUST_HOST = "true";
+
+// If hosted on Render, prioritize Render's external URL (e.g. mrs-bh6k.onrender.com)
+if (process.env.RENDER_EXTERNAL_URL) {
+  process.env.NEXTAUTH_URL = process.env.RENDER_EXTERNAL_URL;
+  process.env.AUTH_URL = process.env.RENDER_EXTERNAL_URL;
+} else if (process.env.NODE_ENV === "production") {
+  // Strip any misconfigured URLs like localhost or wrong slug (mrs.onrender.com)
+  if (
+    process.env.NEXTAUTH_URL &&
+    (process.env.NEXTAUTH_URL.includes("localhost") ||
+      process.env.NEXTAUTH_URL === "https://mrs.onrender.com" ||
+      process.env.NEXTAUTH_URL === "http://mrs.onrender.com")
+  ) {
+    delete process.env.NEXTAUTH_URL;
+  }
+  if (
+    process.env.AUTH_URL &&
+    (process.env.AUTH_URL.includes("localhost") ||
+      process.env.AUTH_URL === "https://mrs.onrender.com" ||
+      process.env.AUTH_URL === "http://mrs.onrender.com")
+  ) {
+    delete process.env.AUTH_URL;
+  }
 }
 
 // Ensure secret is populated in process.env so NextAuth v5 internal checks pass
 if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
   process.env.AUTH_SECRET = "nature-club-super-secret-key-change-in-production-32chars";
   process.env.NEXTAUTH_SECRET = "nature-club-super-secret-key-change-in-production-32chars";
-}
-
-// In production, avoid localhost url conflicts if copied from dev .env
-if (process.env.NODE_ENV === "production" && process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.includes("localhost")) {
-  delete process.env.NEXTAUTH_URL;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -116,6 +133,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (session.user as any).memberCode = token.memberCode;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return url;
+      // Allows callback URLs on the same origin
+      try {
+        const parsedUrl = new URL(url);
+        const parsedBase = new URL(baseUrl);
+        if (parsedUrl.origin === parsedBase.origin) return url;
+      } catch (_) {}
+      return "/login";
     },
   },
 });
